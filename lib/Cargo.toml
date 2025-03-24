@@ -1,0 +1,24 @@
+[package]
+name = "lib"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.42.0", features = ["full"] }
+anyhow = "1.0.95"
+language-tags = { version = "0.3.2", features = ["serde"] }
+derive_builder = "0.20.2"
+async-trait = "0.1.88"
+handlebars = "6.3.2"
+libloading = "0.8.6"
+walkdir = "2.5.0"
+#plugin-qwen = { path = "../plugin-qwen", optional = true }
+#plugin-baidu-fanyi = { path = "../plugin-baidu-fanyi", optional = true }
+#plugin-hunyuan = { path = "../plugin-hunyuan", optional = true }
+#plugin-openai = { path = "../plugin-openai", optional = true }
+#plugin-youdao-llm = { path = "../plugin-youdao-llm", optional = true }
+
+[lib]
+crate-type = ["rlib"]

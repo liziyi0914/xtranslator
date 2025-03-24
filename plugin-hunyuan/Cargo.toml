@@ -1,0 +1,22 @@
+[package]
+name = "plugin-hunyuan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+macros = { path = "../macros" }
+lib = { path = "../lib" }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1.42.0", features = ["full"] }
+anyhow = "1.0.95"
+async-trait = "0.1.88"
+language-tags = { version = "0.3.2", features = ["serde"] }
+sha2 = "0.10.8"
+reqwest = "0.12.15"
+hex = "0.4.3"
+hmac = "0.12.1"
+chrono = "0.4.40"
+
+[lib]
+crate-type = ["cdylib", "rlib"]

@@ -1,0 +1,3 @@
+[workspace]
+members = ["lib", "macros", "plugin-openai", "plugin-qwen", "plugin-youdao-llm", "plugin-hunyuan", "plugin-baidu-fanyi", "all-in-one"]
+resolver = "2"
