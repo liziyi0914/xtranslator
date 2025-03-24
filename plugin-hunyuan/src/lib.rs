@@ -1,6 +1,9 @@
 pub mod translator;
 
-use macros::build_ffi;
-use crate::translator::HunyuanTranslator;
+#[cfg(feature = "dylib")]
+pub mod lib {
+    use macros::build_ffi;
+    use crate::translator::HunyuanTranslator;
 
-build_ffi!("hunyuan", HunyuanTranslator);
+    build_ffi!("hunyuan", HunyuanTranslator);
+}

@@ -17,3 +17,8 @@ language-tags = { version = "0.3.2", features = ["serde"] }
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["dylib"]
+dylib = []
+

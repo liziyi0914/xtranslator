@@ -22,3 +22,8 @@ reqwest-eventsource = "0.6.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["dylib"]
+dylib = []
+

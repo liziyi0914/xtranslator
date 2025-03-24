@@ -2,7 +2,7 @@
 use anyhow::{bail, Result};
 use serde_json::Value;
 use tokio::sync::mpsc::Sender;
-use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
+pub use lib::*;
 
 pub async fn translate(name: String, config: Value, task: TranslateTask) -> Result<TranslateResult> {
     match name.as_str() {

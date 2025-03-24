@@ -16,3 +16,8 @@ async-trait = "0.1.88"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["dylib"]
+dylib = []
+

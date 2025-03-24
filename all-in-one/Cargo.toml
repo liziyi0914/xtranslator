@@ -9,11 +9,11 @@ serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.42.0", features = ["full"] }
 anyhow = "1.0.95"
 lib = { path = "../lib" }
-plugin-openai = { path = "../plugin-openai", optional = true }
-plugin-qwen = { path = "../plugin-qwen", optional = true }
-plugin-baidu-fanyi = { path = "../plugin-baidu-fanyi", optional = true }
-plugin-hunyuan = { path = "../plugin-hunyuan", optional = true }
-plugin-youdao-llm = { path = "../plugin-youdao-llm", optional = true }
+plugin-openai = { path = "../plugin-openai", optional = true, default-features = false }
+plugin-qwen = { path = "../plugin-qwen", optional = true, default-features = false }
+plugin-baidu-fanyi = { path = "../plugin-baidu-fanyi", optional = true, default-features = false }
+plugin-hunyuan = { path = "../plugin-hunyuan", optional = true, default-features = false }
+plugin-youdao-llm = { path = "../plugin-youdao-llm", optional = true, default-features = false }
 
 [features]
 full = [

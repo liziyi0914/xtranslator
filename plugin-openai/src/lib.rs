@@ -1,6 +1,9 @@
 pub mod translator;
 
-use macros::build_ffi;
-use crate::translator::OpenAITranslator;
+#[cfg(feature = "dylib")]
+pub mod lib {
+    use macros::build_ffi;
+    use crate::translator::OpenAITranslator;
 
-build_ffi!("openai", OpenAITranslator);
+    build_ffi!("openai", OpenAITranslator);
+}
