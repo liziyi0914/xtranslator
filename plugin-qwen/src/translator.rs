@@ -5,13 +5,13 @@ use async_openai::Client;
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use language_tags::LanguageTag;
+#[cfg(test)]
+use lib::utils::{test_translate, test_translate_stream};
+use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::Sender;
-use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
-#[cfg(test)]
-use lib::utils::{test_translate, test_translate_stream};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum QwenMtModel {
@@ -226,6 +226,36 @@ impl QwenMtTranslator {
 
         Ok(request)
     }
+    fn lang_list() -> Result<Vec<String>> {
+        Ok(vec![
+            "zh".to_string(),
+            "en".to_string(),
+            "ja".to_string(),
+            "ko".to_string(),
+            "th".to_string(),
+            "fr".to_string(),
+            "de".to_string(),
+            "es".to_string(),
+            "ar".to_string(),
+            "id".to_string(),
+            "vi".to_string(),
+            "pt-BR".to_string(),
+            "it".to_string(),
+            "nl".to_string(),
+            "ru".to_string(),
+            "km".to_string(),
+            "ceb".to_string(),
+            "fil".to_string(),
+            "cs".to_string(),
+            "pl".to_string(),
+            "fa".to_string(),
+            "he".to_string(),
+            "tr".to_string(),
+            "hi".to_string(),
+            "bn".to_string(),
+            "ur".to_string(),
+        ])
+    }
 }
 
 #[async_trait]
@@ -234,6 +264,22 @@ impl Translator for QwenMtTranslator {
 
     async fn new(config: Value) -> Result<Self> {
         serde_json::from_value(config).map_err(|e| anyhow!(e))
+    }
+
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        QwenMtTranslator::lang_list()
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        QwenMtTranslator::lang_list()
+    }
+
+    fn is_supported_input_language(&self, lang: String) -> Result<bool> {
+        Ok(lang == "auto" || QwenMtLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
+    }
+
+    fn is_supported_output_language(&self, lang: String) -> Result<bool> {
+        Ok(QwenMtLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
     }
 
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {

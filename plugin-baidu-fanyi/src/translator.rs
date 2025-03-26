@@ -1,9 +1,10 @@
-#[cfg(test)]
-use lib::utils::{test_translate, test_translate_stream};
-use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use language_tags::LanguageTag;
+use lib::utils::normal2stream;
+#[cfg(test)]
+use lib::utils::{test_translate, test_translate_stream};
+use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use md5::Md5;
 use reqwest::{Client, Method};
 use serde::{Deserialize, Serialize};
@@ -11,7 +12,6 @@ use serde_json::{json, Value};
 use sha2::Digest;
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::Sender;
-use lib::utils::normal2stream;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum BaiduFanyiLanguages {
@@ -117,7 +117,11 @@ impl TryFrom<LanguageTag> for BaiduFanyiLanguages {
 
         // 特殊处理中文变体
         if primary == "zh" {
-            return if tag.script() == Some("Hant") || tag.region().map_or(false, |r| ["TW", "HK", "MO"].contains(&r)) {
+            return if tag.script() == Some("Hant")
+                || tag
+                    .region()
+                    .map_or(false, |r| ["TW", "HK", "MO"].contains(&r))
+            {
                 Ok(Self::TraditionalChinese)
             } else {
                 Ok(Self::Chinese)
@@ -199,6 +203,40 @@ impl BaiduFanyiTranslator {
 
         Ok(data)
     }
+    fn lang_list() -> Result<Vec<String>> {
+        Ok(vec![
+            "zh-CN".to_string(),
+            "zh-HK".to_string(),
+            "zh-TW".to_string(),
+            "zh-MO".to_string(),
+            "en".to_string(),
+            "yue".to_string(),
+            "lzh".to_string(),
+            "ja".to_string(),
+            "ko".to_string(),
+            "fr".to_string(),
+            "es".to_string(),
+            "th".to_string(),
+            "ar".to_string(),
+            "ru".to_string(),
+            "pt".to_string(),
+            "de".to_string(),
+            "it".to_string(),
+            "el".to_string(),
+            "nl".to_string(),
+            "pl".to_string(),
+            "bg".to_string(),
+            "et".to_string(),
+            "da".to_string(),
+            "fi".to_string(),
+            "cs".to_string(),
+            "ro".to_string(),
+            "sl".to_string(),
+            "sv".to_string(),
+            "hu".to_string(),
+            "vi".to_string(),
+        ])
+    }
 }
 
 #[async_trait]
@@ -209,23 +247,53 @@ impl Translator for BaiduFanyiTranslator {
         serde_json::from_value(config).map_err(|e| anyhow!(e))
     }
 
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        BaiduFanyiTranslator::lang_list()
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        BaiduFanyiTranslator::lang_list()
+    }
+
+    fn is_supported_input_language(&self, lang: String) -> Result<bool> {
+        Ok(lang == "auto" || BaiduFanyiLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
+    }
+
+    fn is_supported_output_language(&self, lang: String) -> Result<bool> {
+        Ok(BaiduFanyiLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
+    }
+
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {
         let body = self.build_request(&task)?;
 
         let client = Client::new();
         let resp = client
-            .request(Method::POST, "https://fanyi-api.baidu.com/api/trans/vip/translate")
+            .request(
+                Method::POST,
+                "https://fanyi-api.baidu.com/api/trans/vip/translate",
+            )
             .form(&body)
-            .send().await?;
+            .send()
+            .await?;
         let json = resp.json::<Value>().await?;
 
-        if json["error_code"].as_str().map(|n| n!="52000" ).unwrap_or(false) {
-            bail!("Request API error: {}, {:?}", json["error_code"].as_str().unwrap(), json["error_msg"].as_str())
+        if json["error_code"]
+            .as_str()
+            .map(|n| n != "52000")
+            .unwrap_or(false)
+        {
+            bail!(
+                "Request API error: {}, {:?}",
+                json["error_code"].as_str().unwrap(),
+                json["error_msg"].as_str()
+            )
         }
 
         Ok(TranslateResult {
             reasoning: None,
-            content: json["trans_result"][0]["dst"].as_str().map(|s| s.to_string()),
+            content: json["trans_result"][0]["dst"]
+                .as_str()
+                .map(|s| s.to_string()),
         })
     }
 

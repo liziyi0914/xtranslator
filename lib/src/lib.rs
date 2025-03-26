@@ -60,8 +60,25 @@ pub enum TranslateStreamChunk {
 pub trait Translator {
     type This;
 
+    /// 创建翻译实例
     async fn new(config: Value) -> Result<Self::This>;
+
+    /// 获取支持的源语言列表
+    fn get_supported_input_languages(&self) -> Result<Vec<String>>;
+
+    /// 获取支持的目标语言列表
+    fn get_supported_output_languages(&self) -> Result<Vec<String>>;
+
+    /// 是否支持该语言作为源语言
+    fn is_supported_input_language(&self, lang: String) -> Result<bool>;
+
+    /// 是否支持该语言作为目标语言
+    fn is_supported_output_language(&self, lang: String) -> Result<bool>;
+
+    /// 翻译
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult>;
+
+    /// 流式翻译
     async fn translate_stream(
         &self,
         task: TranslateTask,

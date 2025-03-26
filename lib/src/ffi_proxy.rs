@@ -1,11 +1,12 @@
-use crate::ffi::{stream_callback, unwrap_handle_result, CallTranslate, CallTranslateStream, CreateTranslator, GetPluginName, TranslateStreamChunkFFI, TranslatorHandle};
+use crate::ffi::{free_supported_languages, stream_callback, unwrap_handle_result, CallTranslate, CallTranslateStream, CreateTranslator, GetPluginName, GetSupportedInputLanguages, GetSupportedOutputLanguages, IsSupportedInputLanguage, IsSupportedOutputLanguage, TranslateStreamChunkFFI, TranslatorHandle};
 use crate::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use libloading::{Library, Symbol};
 use serde_json::Value;
 use std::collections::HashMap;
-use std::ffi::{c_void, CString};
+use std::ffi::{c_char, c_void, CStr, CString};
+use std::ptr;
 use tokio::sync::mpsc::Sender;
 use walkdir::WalkDir;
 
@@ -26,6 +27,29 @@ impl ProxyTranslator {
         cfg["_dll_path"] = Value::String(path);
 
         Self::new(cfg).await
+    }
+
+    fn unwrap_ffi_list(array: *mut *const c_char, len: usize) -> Result<Vec<String>> {
+        let list = unsafe {
+            let slice = if array.is_null() {
+                &[]
+            } else {
+                std::slice::from_raw_parts(array, len)
+            };
+            slice
+                .iter()
+                .map(|&ptr| {
+                    CStr::from_ptr(ptr)
+                        .to_str()
+                        .map(|s| s.to_owned())
+                        .map_err(|e| anyhow!("UTF-8 conversion failed: {}", e))
+                })
+                .collect::<Result<Vec<_>, _>>()
+        }?;
+
+        free_supported_languages(array, len);
+
+        Ok(list)
     }
 }
 
@@ -52,6 +76,68 @@ impl Translator for ProxyTranslator {
                 handle,
             })
         }
+    }
+
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        let get_supported_input_languages: Symbol<GetSupportedInputLanguages> = unsafe { self.lib.get(b"get_supported_input_languages") }?;
+
+        let mut languages_ptr: *mut *const c_char = ptr::null_mut();
+        let mut len: usize = 0;
+
+        let ret = unsafe {
+            get_supported_input_languages(
+                self.handle,
+                &mut languages_ptr as *mut _,
+                &mut len as *mut _,
+            )
+        };
+
+        unwrap_handle_result(ret)?;
+
+        ProxyTranslator::unwrap_ffi_list(languages_ptr, len)
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        let get_supported_output_languages: Symbol<GetSupportedOutputLanguages> = unsafe { self.lib.get(b"get_supported_output_languages") }?;
+
+        let mut languages_ptr: *mut *const c_char = ptr::null_mut();
+        let mut len: usize = 0;
+
+        let ret = unsafe {
+            get_supported_output_languages(
+                self.handle,
+                &mut languages_ptr as *mut _,
+                &mut len as *mut _,
+            )
+        };
+
+        unwrap_handle_result(ret)?;
+
+        ProxyTranslator::unwrap_ffi_list(languages_ptr, len)
+    }
+
+    fn is_supported_input_language(&self, lang: String) -> Result<bool> {
+        let is_supported_input_language: Symbol<IsSupportedInputLanguage> = unsafe { self.lib.get(b"is_supported_input_language") }?;
+
+        let lang = CString::new(lang)?.into_raw();
+
+        let ret = unsafe { is_supported_input_language(self.handle, lang) };
+
+        let b = unsafe { Box::from_raw(unwrap_handle_result(ret)?) };
+
+        Ok(*b == 0i8)
+    }
+
+    fn is_supported_output_language(&self, lang: String) -> Result<bool> {
+        let is_supported_output_language: Symbol<IsSupportedOutputLanguage> = unsafe { self.lib.get(b"is_supported_output_language") }?;
+
+        let lang = CString::new(lang)?.into_raw();
+
+        let ret = unsafe { is_supported_output_language(self.handle, lang) };
+
+        let b = unsafe { Box::from_raw(unwrap_handle_result(ret)?) };
+
+        Ok(*b == 0i8)
     }
 
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {

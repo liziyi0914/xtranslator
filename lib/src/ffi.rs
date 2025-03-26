@@ -5,6 +5,10 @@ use std::ptr;
 
 pub type GetPluginName = unsafe extern fn() -> *mut c_char;
 pub type CreateTranslator = unsafe extern fn(*const c_char) -> *mut FfiResult<TranslatorHandle>;
+pub type GetSupportedInputLanguages = unsafe extern fn(*mut TranslatorHandle, *mut *mut *const c_char, *mut usize) -> *mut FfiResult<i8>;
+pub type IsSupportedInputLanguage = unsafe extern fn(*mut TranslatorHandle, *const c_char) -> *mut FfiResult<i8>;
+pub type GetSupportedOutputLanguages = unsafe extern fn(*mut TranslatorHandle, *mut *mut *const c_char, *mut usize) -> *mut FfiResult<i8>;
+pub type IsSupportedOutputLanguage = unsafe extern fn(*mut TranslatorHandle, *const c_char) -> *mut FfiResult<i8>;
 pub type CallTranslate = unsafe extern fn(*mut TranslatorHandle, *const c_char) -> *mut FfiResult<TranslateResultFFI>;
 pub type CallTranslateStream = unsafe extern fn(*mut TranslatorHandle, *const c_char, StreamCallback, *mut c_void) -> *mut FfiResult<i8>;
 
@@ -124,8 +128,7 @@ impl TranslateResult {
     }
 }
 
-#[no_mangle]
-pub extern "C" fn translate_result_free(result: *mut TranslateResultFFI) {
+pub fn free_translate_result(result: *mut TranslateResultFFI) {
     if result.is_null() {
         return;
     }
@@ -221,4 +224,48 @@ pub fn wrap_err(error_ptr: *mut c_char) -> Result<()> {
     }
 
     Ok(())
+}
+
+pub fn convert_string_vec_to_c_array(
+    strings: Vec<String>,
+    output_ptr: *mut *mut *const c_char,
+    output_len: *mut usize,
+) -> *mut FfiResult<i8> {
+    let mut c_strings = Vec::with_capacity(strings.len());
+    for s in strings {
+        match CString::new(s) {
+            Ok(c_str) => c_strings.push(c_str.into_raw()),
+            Err(e) => {
+                for ptr in &c_strings {
+                    unsafe { drop(CString::from_raw(*ptr)) };
+                }
+                return Err(anyhow!("{}", e)).to_ptr();
+            }
+        }
+    }
+    let mut boxed = c_strings.into_boxed_slice();
+    let ptr = boxed.as_mut_ptr() as *mut *const c_char;
+    let len = boxed.len();
+    std::mem::forget(boxed);
+    unsafe {
+        *output_ptr = ptr;
+        *output_len = len;
+    }
+    Ok(0).to_ptr()
+}
+
+pub fn free_supported_languages(array: *mut *const c_char, len: usize) {
+    if array.is_null() || len == 0 {
+        return;
+    }
+    let slice = unsafe {
+        Box::from_raw(std::slice::from_raw_parts_mut(array as *mut *mut c_char, len))
+    };
+    for ptr in slice.iter() {
+        unsafe {
+            if !ptr.is_null() {
+                drop(CString::from_raw(*ptr));
+            }
+        }
+    }
 }

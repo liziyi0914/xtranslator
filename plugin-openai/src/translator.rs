@@ -85,6 +85,22 @@ impl Translator for OpenAITranslator {
         serde_json::from_value(config).map_err(|e| anyhow!(e))
     }
 
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        Ok(vec!["*".to_string()])
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        Ok(vec!["*".to_string()])
+    }
+
+    fn is_supported_input_language(&self, _: String) -> Result<bool> {
+        Ok(true)
+    }
+
+    fn is_supported_output_language(&self, _: String) -> Result<bool> {
+        Ok(true)
+    }
+
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {
         let client = Client::with_config(
             OpenAIConfig::new()

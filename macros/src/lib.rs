@@ -31,7 +31,7 @@ pub fn build_ffi(input: TokenStream) -> TokenStream {
     let translator = input.translator;
 
     TokenStream::from(quote!{
-use lib::ffi::{FfiResult, FfiResultExt, StreamCallback, TranslateResultFFI, TranslatorHandle};
+use lib::ffi::{FfiResult, FfiResultExt, StreamCallback, TranslateResultFFI, TranslatorHandle, convert_string_vec_to_c_array};
 use lib::{TranslateStreamChunk, TranslateTask, Translator};
 use std::ffi::{c_char, c_void, CStr, CString};
 use tokio::runtime::Handle;
@@ -106,6 +106,118 @@ pub extern "C" fn create_translator(
                 }
             }
         })
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn get_supported_input_languages(
+    translator_ptr: *mut TranslatorHandle,
+    array: *mut *mut *const c_char,
+    len: *mut usize,
+) -> *mut FfiResult<i8> {
+    if translator_ptr.is_null() {
+        return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+    }
+
+    let translator = unsafe { &*(translator_ptr as *mut #translator) };
+
+    let list = translator.get_supported_input_languages();
+    if let Err(e) = list {
+        return Err(anyhow::anyhow!("{}", e)).to_ptr();
+    }
+    convert_string_vec_to_c_array(list.unwrap(), array, len)
+}
+
+#[no_mangle]
+pub extern "C" fn get_supported_output_languages(
+    translator_ptr: *mut TranslatorHandle,
+    array: *mut *mut *const c_char,
+    len: *mut usize,
+) -> *mut FfiResult<i8> {
+    if translator_ptr.is_null() {
+        return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+    }
+
+    let translator = unsafe { &*(translator_ptr as *mut #translator) };
+
+    let list = translator.get_supported_output_languages();
+    if let Err(e) = list {
+        return Err(anyhow::anyhow!("{}", e)).to_ptr();
+    }
+    convert_string_vec_to_c_array(list.unwrap(), array, len)
+}
+
+#[no_mangle]
+pub extern "C" fn is_supported_input_language(
+    translator_ptr: *mut TranslatorHandle,
+    lang: *const c_char
+) -> *mut FfiResult<i8> {
+    let lang = unsafe {
+        if lang.is_null() {
+            return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+        }
+        match CStr::from_ptr(lang).to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Invalid UTF-8: {}", e)).to_ptr();
+            }
+        }
+    };
+
+    if translator_ptr.is_null() {
+        return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+    }
+
+    let translator = unsafe { &*(translator_ptr as *mut #translator) };
+
+    let res = translator.is_supported_input_language(lang.to_string());
+    match res {
+        Ok(true) => {
+            Ok(0).to_ptr()
+        }
+        Ok(false) => {
+            Ok(1).to_ptr()
+        }
+        Err(e) => {
+            Err(anyhow::anyhow!("{}", e)).to_ptr()
+        }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn is_supported_output_language(
+    translator_ptr: *mut TranslatorHandle,
+    lang: *const c_char
+) -> *mut FfiResult<i8> {
+    let lang = unsafe {
+        if lang.is_null() {
+            return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+        }
+        match CStr::from_ptr(lang).to_str() {
+            Ok(s) => s,
+            Err(e) => {
+                return Err(anyhow::anyhow!("Invalid UTF-8: {}", e)).to_ptr();
+            }
+        }
+    };
+
+    if translator_ptr.is_null() {
+        return Err(anyhow::anyhow!("Null pointer received")).to_ptr();
+    }
+
+    let translator = unsafe { &*(translator_ptr as *mut #translator) };
+
+    let res = translator.is_supported_output_language(lang.to_string());
+    match res {
+        Ok(true) => {
+            Ok(0).to_ptr()
+        }
+        Ok(false) => {
+            Ok(1).to_ptr()
+        }
+        Err(e) => {
+            Err(anyhow::anyhow!("{}", e)).to_ptr()
+        }
     }
 }
 
@@ -249,6 +361,16 @@ pub extern "C" fn call_translate_stream(
 
         r.to_ptr()
     }
+}
+
+#[no_mangle]
+pub extern "C" fn free_translate_result(result: *mut TranslateResultFFI) {
+    lib::ffi::free_translate_result(result)
+}
+
+#[no_mangle]
+pub extern "C" fn free_supported_languages(array: *mut *const c_char, len: usize) {
+    lib::ffi::free_supported_languages(array, len)
 }
 
     })

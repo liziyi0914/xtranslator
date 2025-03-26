@@ -143,6 +143,38 @@ impl Translator for YoudaoLLMTranslator {
         serde_json::from_value(config).map_err(|e| anyhow!(e))
     }
 
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        Ok(vec![
+            "zh".to_string(),
+            "en".to_string(),
+        ])
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        Ok(vec![
+            "zh".to_string(),
+            "en".to_string(),
+        ])
+    }
+
+    fn is_supported_input_language(&self, lang: String) -> Result<bool> {
+        let tag = LanguageTag::parse(lang.as_str())?;
+        let li = vec![
+            "zh".to_string(),
+            "en".to_string(),
+        ];
+        Ok(li.contains(&tag.primary_language().to_string()))
+    }
+
+    fn is_supported_output_language(&self, lang: String) -> Result<bool> {
+        let tag = LanguageTag::parse(lang.as_str())?;
+        let li = vec![
+            "zh".to_string(),
+            "en".to_string(),
+        ];
+        Ok(li.contains(&tag.primary_language().to_string()))
+    }
+
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {
         stream2normal(self, task).await
     }

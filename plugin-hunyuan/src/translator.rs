@@ -1,19 +1,19 @@
-#[cfg(test)]
-use lib::utils::{test_translate, test_translate_stream};
-use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use hmac::{Hmac, Mac};
 use language_tags::LanguageTag;
-use reqwest::{Client, IntoUrl, RequestBuilder};
+use lib::utils::normal2stream;
+#[cfg(test)]
+use lib::utils::{test_translate, test_translate_stream};
+use lib::{TranslateResult, TranslateStreamChunk, TranslateTask, Translator};
 use reqwest::Request;
+use reqwest::{Client, IntoUrl, RequestBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::cmp::{min, Ordering};
 use std::fmt::{Display, Formatter};
 use tokio::sync::mpsc::Sender;
-use lib::utils::normal2stream;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 enum RequestMethod {
@@ -325,7 +325,9 @@ impl Display for HunyuanTranslationModel {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HunyuanTranslationModel::HunyuanTranslation => f.write_str("hunyuan-translation"),
-            HunyuanTranslationModel::HunyuanTranslationLite => f.write_str("hunyuan-translation-lite"),
+            HunyuanTranslationModel::HunyuanTranslationLite => {
+                f.write_str("hunyuan-translation-lite")
+            }
         }
     }
 }
@@ -365,7 +367,7 @@ pub enum HunyuanTransLanguages {
     ///马来语
     Ms,
     ///印尼语
-    Id
+    Id,
 }
 
 impl Display for HunyuanTransLanguages {
@@ -448,24 +450,28 @@ impl HunyuanTranslator {
             let mut list = task.terms[0..min(task.terms.len(), 10)]
                 .to_vec()
                 .iter()
-                .map(|i| json!({
-                    "Type": "term",
-                    "Text": i.source.clone(),
-                    "Translation": i.target.clone(),
-                }))
+                .map(|i| {
+                    json!({
+                        "Type": "term",
+                        "Text": i.source.clone(),
+                        "Translation": i.target.clone(),
+                    })
+                })
                 .collect();
             references.append(&mut list);
         }
 
         if task.references.len() > 0 && references.len() < 10 {
-            let mut list = task.references[0..min(task.references.len(), 10-references.len())]
+            let mut list = task.references[0..min(task.references.len(), 10 - references.len())]
                 .to_vec()
                 .iter()
-                .map(|i| json!({
-                    "Type": "sentence",
-                    "Text": i.source.clone(),
-                    "Translation": i.target.clone(),
-                }))
+                .map(|i| {
+                    json!({
+                        "Type": "sentence",
+                        "Text": i.source.clone(),
+                        "Translation": i.target.clone(),
+                    })
+                })
                 .collect();
             references.append(&mut list);
         }
@@ -473,6 +479,27 @@ impl HunyuanTranslator {
         body["References"] = Value::Array(references);
 
         Ok(body)
+    }
+    fn lang_list() -> Result<Vec<String>> {
+        Ok(vec![
+            "zh".to_string(),
+            "yue".to_string(),
+            "en".to_string(),
+            "fr".to_string(),
+            "pt".to_string(),
+            "es".to_string(),
+            "ja".to_string(),
+            "tr".to_string(),
+            "ru".to_string(),
+            "ar".to_string(),
+            "ko".to_string(),
+            "th".to_string(),
+            "it".to_string(),
+            "de".to_string(),
+            "vi".to_string(),
+            "ms".to_string(),
+            "id".to_string(),
+        ])
     }
 }
 
@@ -482,6 +509,22 @@ impl Translator for HunyuanTranslator {
 
     async fn new(config: Value) -> Result<Self> {
         serde_json::from_value(config).map_err(|e| anyhow!(e))
+    }
+
+    fn get_supported_input_languages(&self) -> Result<Vec<String>> {
+        HunyuanTranslator::lang_list()
+    }
+
+    fn get_supported_output_languages(&self) -> Result<Vec<String>> {
+        HunyuanTranslator::lang_list()
+    }
+
+    fn is_supported_input_language(&self, lang: String) -> Result<bool> {
+        Ok(HunyuanTransLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
+    }
+
+    fn is_supported_output_language(&self, lang: String) -> Result<bool> {
+        Ok(HunyuanTransLanguages::try_from(LanguageTag::parse(lang.as_str())?).is_ok())
     }
 
     async fn translate(&self, task: TranslateTask) -> Result<TranslateResult> {
@@ -513,10 +556,7 @@ impl Translator for HunyuanTranslator {
             bail!("请求失败: {:?}", obj.response.error);
         }
 
-        let data = obj
-            .response
-            .data
-            .ok_or(anyhow!("数据解析失败"))?;
+        let data = obj.response.data.ok_or(anyhow!("数据解析失败"))?;
 
         let content = data["Choices"][0]["Message"]["Content"]
             .as_str()
