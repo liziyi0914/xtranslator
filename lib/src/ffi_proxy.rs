@@ -181,7 +181,7 @@ impl Drop for ProxyTranslator {
 }
 
 pub fn load_translators(root: String) -> Result<HashMap<String, String>> {
-    let extensions = {
+    let extensions: Vec<&str> = {
         #[cfg(windows)]
         {
             vec!["dll"]
@@ -192,7 +192,7 @@ pub fn load_translators(root: String) -> Result<HashMap<String, String>> {
             vec!["so"]
         }
 
-        #[cfg(target_os = "macos")]
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
         {
             vec!["dylib"]
         }
@@ -201,7 +201,8 @@ pub fn load_translators(root: String) -> Result<HashMap<String, String>> {
             target_os = "windows",
             target_os = "linux",
             target_os = "android",
-            target_os = "macos"
+            target_os = "macos",
+            target_os = "ios"
         )))]
         {
             vec![]
